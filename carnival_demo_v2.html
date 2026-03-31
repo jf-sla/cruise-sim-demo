@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carnival — ShipSense™ Passenger Intelligence</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --carnival-red: #E31837; --carnival-navy: #002B5C; --carnival-gold: #F5A623;
+    --bg: #050c1a; --panel: rgba(8,18,38,0.93); --border: rgba(255,255,255,0.08);
+    --text: #e8edf5; --muted: #7a8ba0; --accent: #00d4ff;
+    --green: #10b981; --amber: #f59e0b; --red: #ef4444;
+  }
+  html, body { width:100%; height:100%; background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; overflow:hidden; }
+  #canvas-container { position:absolute; inset:0; }
+  #canvas-container canvas { display:block; width:100%!important; height:100%!important; }
+
+  /* TOP BAR */
+  #topbar {
+    position:absolute; top:0; left:0; right:0; height:52px;
+    background:rgba(5,12,26,0.96); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; padding:0 20px; gap:16px;
+    backdrop-filter:blur(12px); z-index:100;
+  }
+  .logo { display:flex; align-items:center; gap:8px; font-weight:600; font-size:15px; letter-spacing:.02em; }
+  .logo-mark { width:28px; height:28px; background:var(--carnival-red); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; }
+  .logo-sub { color:var(--muted); font-size:11px; font-weight:400; }
+  .topbar-sep { width:1px; height:24px; background:var(--border); }
+  .ship-name { font-size:13px; color:var(--muted); }
+  .ship-name span { color:var(--text); font-weight:500; }
+  .status-pill { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:500; background:rgba(16,185,129,.12); color:var(--green); padding:3px 10px; border-radius:20px; border:1px solid rgba(16,185,129,.25); }
+  .status-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .topbar-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
+  .time-display { font-family:'DM Mono',monospace; font-size:13px; color:var(--muted); letter-spacing:.05em; }
+  .phase-badge { font-size:11px; font-weight:500; padding:3px 8px; border-radius:4px; background:rgba(245,166,35,.15); color:var(--carnival-gold); border:1px solid rgba(245,166,35,.3); letter-spacing:.04em; text-transform:uppercase; }
+
+  /* PANELS */
+  #left-panel {
+    position:absolute; top:52px; left:0; bottom:100px; width:240px;
+    background:var(--panel); border-right:1px solid var(--border);
+    overflow-y:auto; z-index:90; padding:16px; backdrop-filter:blur(12px);
+  }
+  #right-panel {
+    position:absolute; top:52px; right:0; bottom:100px; width:280px;
+    background:var(--panel); border-left:1px solid var(--border);
+    overflow-y:auto; z-index:90; padding:16px; backdrop-filter:blur(12px);
+  }
+  .panel-section { margin-bottom:20px; }
+  .panel-label { font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+
+  .scenario-btn { display:block; width:100%; text-align:left; background:transparent; border:1px solid var(--border); border-radius:6px; padding:8px 10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer; margin-bottom:5px; transition:all .15s; }
+  .scenario-btn:hover { background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.15); }
+  .scenario-btn.active { background:rgba(0,212,255,.1); border-color:rgba(0,212,255,.4); color:var(--accent); }
+  .scenario-btn .btn-icon { font-size:14px; margin-right:6px; }
+  .scenario-btn .btn-sub { display:block; color:var(--muted); font-size:10px; margin-top:1px; }
+
+  .deck-btn { display:flex; align-items:center; justify-content:space-between; width:100%; background:transparent; border:1px solid var(--border); border-radius:6px; padding:6px 10px; margin-bottom:4px; color:var(--muted); font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer; transition:all .15s; }
+  .deck-btn:hover { color:var(--text); border-color:rgba(255,255,255,.15); }
+  .deck-btn.active { color:var(--accent); border-color:rgba(0,212,255,.4); background:rgba(0,212,255,.07); }
+  .deck-count { font-family:'DM Mono',monospace; font-size:11px; background:rgba(255,255,255,.07); padding:1px 5px; border-radius:3px; }
+
+  .metric-row { display:flex; gap:6px; margin-bottom:6px; }
+  .metric-card { flex:1; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:6px; padding:8px 10px; }
+  .metric-label { font-size:10px; color:var(--muted); margin-bottom:2px; }
+  .metric-value { font-size:18px; font-weight:500; font-family:'DM Mono',monospace; }
+  .metric-value.green { color:var(--green); }
+  .metric-value.amber { color:var(--amber); }
+  .metric-value.red { color:var(--red); }
+  .metric-delta { font-size:10px; color:var(--muted); margin-top:1px; }
+
+  .heat-legend { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--muted); }
+  .heat-bar { flex:1; height:6px; border-radius:3px; background:linear-gradient(to right,#0ea5e9,#10b981,#f59e0b,#ef4444); }
+  .toggle-wrap { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .toggle-label { font-size:12px; color:var(--muted); }
+  .toggle { position:relative; width:32px; height:18px; background:rgba(255,255,255,.1); border-radius:9px; cursor:pointer; border:1px solid var(--border); transition:background .2s; }
+  .toggle.on { background:rgba(0,212,255,.4); border-color:rgba(0,212,255,.6); }
+  .toggle-thumb { position:absolute; top:2px; left:2px; width:12px; height:12px; background:var(--muted); border-radius:50%; transition:all .2s; }
+  .toggle.on .toggle-thumb { left:16px; background:var(--accent); }
+  .speed-btn { background:rgba(255,255,255,.05); border:1px solid var(--border); border-radius:4px; padding:3px 8px; color:var(--muted); font-family:'DM Mono',monospace; font-size:11px; cursor:pointer; transition:all .15s; }
+  .speed-btn.active { color:var(--accent); border-color:rgba(0,212,255,.4); background:rgba(0,212,255,.1); }
+  .speed-row { display:flex; gap:4px; }
+
+  /* INSIGHTS */
+  .insight-card { background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+  .insight-card.alert { border-color:rgba(239,68,68,.4); background:rgba(239,68,68,.06); }
+  .insight-card.warn { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.06); }
+  .insight-card.info { border-color:rgba(0,212,255,.3); background:rgba(0,212,255,.05); }
+  .insight-card.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.05); }
+  .insight-header { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+  .insight-tag { font-size:9px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; padding:2px 5px; border-radius:3px; }
+  .insight-tag.alert { background:rgba(239,68,68,.2); color:#fca5a5; }
+  .insight-tag.warn { background:rgba(245,158,11,.2); color:#fcd34d; }
+  .insight-tag.info { background:rgba(0,212,255,.15); color:var(--accent); }
+  .insight-tag.good { background:rgba(16,185,129,.2); color:#6ee7b7; }
+  .insight-time { font-size:10px; color:var(--muted); margin-left:auto; font-family:'DM Mono',monospace; }
+  .insight-body { font-size:12px; line-height:1.5; color:#c5d0df; }
+  .insight-body strong { color:var(--text); font-weight:500; }
+
+  .venue-row { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+  .venue-name { font-size:11px; color:var(--muted); width:80px; flex-shrink:0; }
+  .venue-bar-track { flex:1; height:5px; background:rgba(255,255,255,.07); border-radius:3px; overflow:hidden; }
+  .venue-bar-fill { height:100%; border-radius:3px; transition:width 1.5s ease; }
+  .venue-count { font-size:11px; font-family:'DM Mono',monospace; color:var(--muted); width:28px; text-align:right; }
+
+  /* TIMELINE BAR */
+  #timeline-bar {
+    position:absolute; bottom:0; left:240px; right:280px; height:100px;
+    background:rgba(5,12,26,0.96); border-top:1px solid var(--border);
+    z-index:90; backdrop-filter:blur(12px); padding:10px 20px 8px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+
+  /* Timeline scrubber */
+  .tl-track-wrap { position:relative; height:32px; display:flex; align-items:center; }
+  #tl-track {
+    width:100%; height:6px; background:rgba(255,255,255,.08); border-radius:3px;
+    appearance:none; outline:none; cursor:pointer;
+    accent-color:var(--accent);
+  }
+  #tl-track::-webkit-slider-thumb { width:16px; height:16px; border-radius:50%; background:var(--accent); border:2px solid #050c1a; cursor:pointer; box-shadow:0 0 6px rgba(0,212,255,.5); }
+  #tl-track::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:var(--accent); border:2px solid #050c1a; cursor:pointer; }
+
+  /* Timeline phase labels */
+  .tl-phases { display:flex; justify-content:space-between; position:absolute; top:0; left:0; right:0; pointer-events:none; }
+  .tl-phase-mark { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .tl-phase-dot { width:8px; height:8px; border-radius:50%; border:1.5px solid var(--border); background:var(--bg); }
+  .tl-phase-dot.reached { background:var(--accent); border-color:var(--accent); box-shadow:0 0 5px rgba(0,212,255,.6); }
+  .tl-phase-label { font-size:9px; color:var(--muted); white-space:nowrap; }
+
+  /* Controls row */
+  .tl-controls { display:flex; align-items:center; gap:10px; }
+  .tl-btn {
+    background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:5px;
+    padding:4px 10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:12px;
+    cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:5px;
+  }
+  .tl-btn:hover { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.2); }
+  .tl-btn.primary { background:rgba(0,212,255,.15); border-color:rgba(0,212,255,.4); color:var(--accent); }
+  .tl-btn.primary:hover { background:rgba(0,212,255,.25); }
+
+  .tl-time-info { font-family:'DM Mono',monospace; font-size:12px; color:var(--muted); }
+  .tl-time-info span { color:var(--text); }
+  .tl-scenario-info { margin-left:auto; font-size:11px; color:var(--muted); display:flex; align-items:center; gap:6px; }
+  .tl-scenario-dot { width:7px; height:7px; border-radius:50%; background:var(--accent); }
+
+  /* Phase steps (bottom-most strip) */
+  #phase-strip {
+    display:flex; gap:0; border-top:1px solid var(--border);
+    position:absolute; bottom:0; left:240px; right:280px; height:0;
+  }
+
+  /* BOTTOM PHASE BAR — now sits under timeline */
+  #bottom-bar {
+    position:absolute; bottom:0; left:240px; right:280px; height:48px; display:none;
+  }
+
+  /* VIEW CONTROLS */
+  .view-controls { position:absolute; bottom:110px; left:50%; transform:translateX(-50%); display:flex; gap:6px; z-index:90; }
+  .view-btn { background:rgba(8,18,38,.85); border:1px solid var(--border); border-radius:5px; padding:5px 10px; color:var(--muted); font-family:'DM Sans',sans-serif; font-size:11px; cursor:pointer; transition:all .15s; backdrop-filter:blur(8px); }
+  .view-btn:hover { color:var(--text); border-color:rgba(255,255,255,.2); }
+  .view-btn.active { color:var(--accent); border-color:rgba(0,212,255,.4); background:rgba(0,212,255,.1); }
+
+  /* TOOLTIP */
+  #tooltip { position:absolute; pointer-events:none; z-index:200; background:rgba(5,12,26,.95); border:1px solid var(--border); border-radius:6px; padding:8px 12px; font-size:12px; backdrop-filter:blur(12px); display:none; }
+  #tooltip .tt-name { font-weight:500; margin-bottom:3px; }
+  #tooltip .tt-count { color:var(--accent); font-family:'DM Mono',monospace; }
+
+  /* LOADING SCREEN */
+  #loading-screen {
+    position:absolute; inset:0; background:var(--bg); z-index:500;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+    transition:opacity .6s;
+  }
+  #loading-screen.hidden { opacity:0; pointer-events:none; }
+  .loading-logo { font-size:28px; font-weight:600; letter-spacing:.04em; }
+  .loading-logo span { color:var(--carnival-red); }
+  .loading-bar-track { width:280px; height:3px; background:rgba(255,255,255,.08); border-radius:2px; overflow:hidden; }
+  .loading-bar-fill { height:100%; background:var(--accent); border-radius:2px; width:0%; transition:width .3s; }
+  .loading-status { font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; }
+
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1); border-radius:2px; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes slideIn { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:translateX(0)} }
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+  <div class="loading-logo">Ship<span>Sense</span>™</div>
+  <div style="font-size:13px;color:var(--muted)">Carnival Sylndeor — Passenger Intelligence Platform</div>
+  <div class="loading-bar-track"><div class="loading-bar-fill" id="load-bar"></div></div>
+  <div class="loading-status" id="load-status">Initializing renderer…</div>
+</div>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="logo">
+    <div class="logo-mark">C</div>
+    <div>ShipSense™<div class="logo-sub">Passenger Intelligence Platform</div></div>
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="ship-name">Vessel: <span>Carnival Sylndeor</span> &nbsp;·&nbsp; Route: <span>Port Canaveral → Nassau</span></div>
+  <div class="status-pill"><div class="status-dot"></div>Live Simulation</div>
+  <div class="topbar-right">
+    <div class="time-display" id="clock-display">14:32:07</div>
+    <div class="phase-badge" id="scenario-badge">Normal Cruise</div>
+  </div>
+</div>
+
+<!-- CANVAS -->
+<div id="canvas-container"></div>
+
+<!-- LEFT PANEL -->
+<div id="left-panel">
+  <div class="panel-section">
+    <div class="panel-label">Scenario</div>
+    <button class="scenario-btn active" onclick="setScenario('normal')" id="btn-normal"><span class="btn-icon">🚢</span>Normal Cruise<span class="btn-sub">Typical passenger distribution</span></button>
+    <button class="scenario-btn" onclick="setScenario('port')" id="btn-port"><span class="btn-icon">⚓</span>Port Day<span class="btn-sub">Low on-board occupancy</span></button>
+    <button class="scenario-btn" onclick="setScenario('dinner')" id="btn-dinner"><span class="btn-icon">🍽️</span>Dinner Rush<span class="btn-sub">High restaurant demand</span></button>
+    <button class="scenario-btn" onclick="setScenario('drill')" id="btn-drill"><span class="btn-icon">🆘</span>Muster Drill<span class="btn-sub">Emergency station assembly</span></button>
+    <button class="scenario-btn" onclick="setScenario('weather')" id="btn-weather"><span class="btn-icon">⛈️</span>Weather Event<span class="btn-sub">Indoor venues congested</span></button>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-label">Deck View</div>
+    <button class="deck-btn active" onclick="setDeck('all')" id="deck-all">All Decks <span class="deck-count" id="cnt-all">—</span></button>
+    <button class="deck-btn" onclick="setDeck('lido')" id="deck-lido">Lido Pool (Top) <span class="deck-count" id="cnt-lido">—</span></button>
+    <button class="deck-btn" onclick="setDeck('carnival')" id="deck-carnival">Carnival Blvd <span class="deck-count" id="cnt-carnival">—</span></button>
+    <button class="deck-btn" onclick="setDeck('pool')" id="deck-pool">Casino Deck <span class="deck-count" id="cnt-pool">—</span></button>
+    <button class="deck-btn" onclick="setDeck('dining')" id="deck-dining">Dining (Lower) <span class="deck-count" id="cnt-dining">—</span></button>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-label">Live Metrics</div>
+    <div class="metric-row">
+      <div class="metric-card"><div class="metric-label">On Board</div><div class="metric-value green" id="m-onboard">—</div><div class="metric-delta">of 6,500 capacity</div></div>
+      <div class="metric-card"><div class="metric-label">Congestion</div><div class="metric-value amber" id="m-congestion">—</div><div class="metric-delta">hotspot zones</div></div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-card"><div class="metric-label">Avg Wait</div><div class="metric-value" id="m-wait" style="color:var(--accent)">—</div><div class="metric-delta">Restaurant queue</div></div>
+      <div class="metric-card"><div class="metric-label">Revenue/hr</div><div class="metric-value green" id="m-revenue">—</div><div class="metric-delta">F&B + activities</div></div>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-label">Heatmap</div>
+    <div class="toggle-wrap"><span class="toggle-label">Density overlay</span><div class="toggle on" id="heat-toggle" onclick="toggleHeatmap()"><div class="toggle-thumb"></div></div></div>
+    <div class="heat-legend"><span>Low</span><div class="heat-bar"></div><span>High</span></div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-label">Simulation Speed</div>
+    <div class="speed-row">
+      <button class="speed-btn" onclick="setSpeed(0.5,this)">0.5×</button>
+      <button class="speed-btn active" onclick="setSpeed(1,this)">1×</button>
+      <button class="speed-btn" onclick="setSpeed(2,this)">2×</button>
+      <button class="speed-btn" onclick="setSpeed(5,this)">5×</button>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL — AI INSIGHTS -->
+<div id="right-panel">
+  <div class="panel-section">
+    <div class="panel-label">AI Insights <span style="color:var(--accent);font-size:9px"> ✦ ShipSense AI</span></div>
+    <div id="insights-container"></div>
+  </div>
+  <div class="panel-section">
+    <div class="panel-label">Venue Occupancy</div>
+    <div id="venue-bars"></div>
+  </div>
+  <div class="panel-section">
+    <div class="panel-label">Crew Redeployment</div>
+    <div id="crew-suggestions"></div>
+  </div>
+  <div class="panel-section">
+    <div class="panel-label">Technology Roadmap</div>
+    <div class="insight-card info" style="font-size:11px;line-height:1.7;color:#c5d0df">
+      <strong style="color:var(--accent)">Phase 1 (Now):</strong> Existing CCTV + computer vision headcount<br>
+      <strong style="color:var(--carnival-gold)">Phase 2 (6mo):</strong> Zone-level flow analytics + alerts<br>
+      <strong style="color:#a78bfa">Phase 3 (18mo):</strong> Predictive simulation + crew optimization<br>
+      <strong style="color:var(--green)">Phase 4 (3yr):</strong> Generative ship design feedback loop
+    </div>
+  </div>
+</div>
+
+<!-- TIMELINE BAR -->
+<div id="timeline-bar">
+  <div class="tl-controls">
+    <button class="tl-btn primary" id="tl-play-btn" onclick="tlTogglePlay()">
+      <span id="tl-play-icon">⏸</span> <span id="tl-play-label">Pause</span>
+    </button>
+    <button class="tl-btn" onclick="tlReset()">↺ Reset</button>
+    <div class="tl-time-info">
+      Day <span id="tl-day">1</span> &nbsp;·&nbsp; <span id="tl-time-label">08:00</span>
+    </div>
+    <div class="tl-scenario-info">
+      <div class="tl-scenario-dot" id="tl-dot"></div>
+      <span id="tl-scenario-label">Normal Cruise</span>
+      &nbsp;·&nbsp; <span style="font-size:10px">Tick <span id="tl-tick-num" style="color:var(--accent)">0</span></span>
+    </div>
+  </div>
+
+  <div class="tl-track-wrap">
+    <div class="tl-phases" id="tl-phases"></div>
+    <input type="range" id="tl-track" min="0" max="2400" value="0" step="1" oninput="tlScrub(this.value)">
+  </div>
+</div>
+
+<!-- VIEW CONTROLS -->
+<div class="view-controls">
+  <button class="view-btn active" onclick="setCameraView('perspective')" id="view-persp">3D View</button>
+  <button class="view-btn" onclick="setCameraView('top')" id="view-top">Top-Down</button>
+  <button class="view-btn" onclick="setCameraView('side')" id="view-side">Side View</button>
+</div>
+
+<div id="tooltip">
+  <div class="tt-name" id="tt-name">Pool Deck</div>
+  <div class="tt-count" id="tt-count">142 passengers</div>
+</div>
+
+<!-- THREE.JS + GLTF LOADER -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+
+<script>
+// =============================================
+//  CONFIG & DATA
+// =============================================
+const SHIP_LENGTH = 120, SHIP_WIDTH = 24, DECK_HEIGHT = 3.2, NUM_AGENTS = 180;
+
+const VENUES = [
+  { name:'Lido Pool',       deck:5, x:15,  z:2,   capacity:200, color:0x06b6d4 },
+  { name:'Sports Court',    deck:5, x:-30, z:6,   capacity:80,  color:0x10b981 },
+  { name:'Serenity Adults', deck:5, x:40,  z:-5,  capacity:120, color:0x8b5cf6 },
+  { name:'Carnival Blvd',   deck:4, x:0,   z:0,   capacity:300, color:0xf59e0b },
+  { name:'Guys Burger',     deck:4, x:-20, z:3,   capacity:150, color:0xef4444 },
+  { name:'RedFrog Pub',     deck:4, x:25,  z:-4,  capacity:100, color:0xf97316 },
+  { name:'Casino',          deck:3, x:5,   z:2,   capacity:250, color:0x7c3aed },
+  { name:'Main Dining',     deck:1, x:0,   z:0,   capacity:400, color:0xe31837 },
+  { name:'Chef\'s Table',   deck:1, x:30,  z:5,   capacity:60,  color:0xf5a623 },
+  { name:'Aft Pool',        deck:5, x:-45, z:0,   capacity:120, color:0x06b6d4 },
+];
+
+const SCENARIOS = {
+  normal: { label:'Normal Cruise',  weights:[1.2,0.8,1.0,1.1,1.0,1.0,0.9,0.8,0.5,0.9], onboard:4850, congestion:3, wait:'8 min',  revenue:'$42K', dotColor:'#00d4ff' },
+  port:   { label:'Port Day',       weights:[0.2,0.1,0.1,0.3,0.2,0.2,0.1,0.1,0.05,0.1], onboard:1200, congestion:1, wait:'2 min',  revenue:'$11K', dotColor:'#10b981' },
+  dinner: { label:'Dinner Rush',    weights:[0.3,0.2,0.3,0.8,0.4,0.5,0.7,2.5,1.8,0.2],  onboard:5100, congestion:7, wait:'34 min', revenue:'$78K', dotColor:'#f59e0b' },
+  drill:  { label:'Muster Drill',   weights:[.05,.05,.05,.05,.05,.05,.05,.05,.05,.05],    onboard:6400, congestion:12,wait:'—',     revenue:'$0K',  dotColor:'#ef4444' },
+  weather:{ label:'Weather Event',  weights:[0.2,0.1,0.1,2.0,1.8,1.5,1.6,0.8,0.6,0.1],  onboard:5800, congestion:9, wait:'22 min', revenue:'$56K', dotColor:'#8b5cf6' },
+};
+
+// Timeline events: { tick, scenario, label }
+const TL_EVENTS = [
+  { tick:0,    scenario:'normal', label:'Morning — Depart' },
+  { tick:480,  scenario:'port',   label:'Port Day' },
+  { tick:800,  scenario:'normal', label:'Return aboard' },
+  { tick:1100, scenario:'dinner', label:'Dinner Rush' },
+  { tick:1400, scenario:'weather',label:'Weather Event' },
+  { tick:1800, scenario:'drill',  label:'Muster Drill' },
+  { tick:2100, scenario:'normal', label:'Evening Cruise' },
+];
+const TL_MAX = 2400;
+
+// =============================================
+//  STATE
+// =============================================
+let currentScenario = 'normal', currentDeck = 'all';
+let showHeatmap = true, simSpeed = 1.0;
+let tick = 0, cameraMode = 'perspective';
+let tlPlaying = true, tlTick = 0;
+let lastInsightUpdate = -1; // track when we last rebuilt insight cards
+let lastInsightScenario = '';
+
+// =============================================
+//  THREE.JS SETUP
+// =============================================
+const container = document.getElementById('canvas-container');
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.localClippingEnabled = true;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050c1a);
+scene.fog = new THREE.FogExp2(0x050c1a, 0.006);
+
+const camera = new THREE.PerspectiveCamera(52, container.clientWidth/container.clientHeight, 0.1, 2000);
+camera.position.set(80, 60, 80);
+camera.lookAt(0,15,0);
+
+// Orbit
+let isDragging=false, lastMouse={x:0,y:0};
+let spherical={theta:0.6,phi:0.85,radius:130};
+let targetSpherical={...spherical};
+let cameraTarget=new THREE.Vector3(0,14,0);
+
+// Clipping plane for deck cross-section — clips everything ABOVE a Y threshold
+// normal (0,-1,0) + constant = clips where 0*x + -1*y + 0*z + constant < 0, i.e. y > constant
+const deckClipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 999);
+renderer.clippingPlanes = []; // no clipping by default
+
+renderer.domElement.addEventListener('mousedown',e=>{isDragging=true;lastMouse={x:e.clientX,y:e.clientY};});
+renderer.domElement.addEventListener('mouseup',()=>isDragging=false);
+renderer.domElement.addEventListener('mouseleave',()=>isDragging=false);
+renderer.domElement.addEventListener('mousemove',e=>{
+  if(!isDragging||cameraMode!=='perspective')return;
+  targetSpherical.theta-=(e.clientX-lastMouse.x)*0.005;
+  targetSpherical.phi=Math.max(0.15,Math.min(1.45,targetSpherical.phi+(e.clientY-lastMouse.y)*0.005));
+  lastMouse={x:e.clientX,y:e.clientY};
+});
+renderer.domElement.addEventListener('wheel',e=>{
+  targetSpherical.radius=Math.max(30,Math.min(280,targetSpherical.radius+e.deltaY*0.12));
+},{passive:true});
+
+// Lights
+scene.add(new THREE.AmbientLight(0x1a2a4a, 0.9));
+const sunLight=new THREE.DirectionalLight(0xfff5e0,1.4);
+sunLight.position.set(60,80,40);
+sunLight.castShadow=true;
+sunLight.shadow.mapSize.set(2048,2048);
+sunLight.shadow.camera.near=1; sunLight.shadow.camera.far=400;
+sunLight.shadow.camera.left=-160; sunLight.shadow.camera.right=160;
+sunLight.shadow.camera.top=100; sunLight.shadow.camera.bottom=-100;
+scene.add(sunLight);
+const fillL=new THREE.DirectionalLight(0x4488ff,0.35);
+fillL.position.set(-40,20,-60); scene.add(fillL);
+const rimL=new THREE.DirectionalLight(0xffeedd,0.2);
+rimL.position.set(0,10,-100); scene.add(rimL);
+
+// Ocean
+const oceanGeo=new THREE.PlaneGeometry(800,800,50,50);
+const oceanMat=new THREE.MeshPhongMaterial({color:0x003a6b,specular:0x0066aa,shininess:90,transparent:true,opacity:0.9,side:THREE.DoubleSide});
+const ocean=new THREE.Mesh(oceanGeo,oceanMat);
+ocean.rotation.x=-Math.PI/2; ocean.position.y=-4; scene.add(ocean);
+const baseOceanY=new Float32Array(oceanGeo.attributes.position.array);
+
+// Grid
+const gridHelper=new THREE.GridHelper(800,80,0x0d1f35,0x0a1628);
+gridHelper.position.y=-3.8; scene.add(gridHelper);
+
+// Stars
+const starGeo=new THREE.BufferGeometry();
+const sp=[];
+for(let i=0;i<1000;i++) sp.push((Math.random()-.5)*1000,120+Math.random()*300,(Math.random()-.5)*1000);
+starGeo.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));
+scene.add(new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xffffff,size:0.6,transparent:true,opacity:0.5})));
+
+// =============================================
+//  GLTF SHIP MODEL
+// =============================================
+const shipGroup = new THREE.Group();
+scene.add(shipGroup);
+let gltfLoaded = false;
+
+function loadProgress(pct, msg) {
+  document.getElementById('load-bar').style.width = pct + '%';
+  document.getElementById('load-status').textContent = msg;
+}
+
+loadProgress(10, 'Loading Three.js loaders…');
+
+// Build fallback procedural ship (shown while / if GLTF loads)
+const fallbackShip = new THREE.Group();
+function buildFallbackShip() {
+  const hullMat = new THREE.MeshPhongMaterial({color:0x1a1a2e,shininess:30});
+  const hullGeo = new THREE.BoxGeometry(SHIP_LENGTH,8,SHIP_WIDTH);
+  const hull=new THREE.Mesh(hullGeo,hullMat); hull.position.y=2; hull.castShadow=true; fallbackShip.add(hull);
+
+  const stripeMat=new THREE.MeshPhongMaterial({color:0xcc1122});
+  const stripe=new THREE.Mesh(new THREE.BoxGeometry(SHIP_LENGTH+.2,.8,SHIP_WIDTH+.2),stripeMat);
+  stripe.position.y=5.4; fallbackShip.add(stripe);
+
+  const upperMat=new THREE.MeshPhongMaterial({color:0xf0f0f0});
+  const upper=new THREE.Mesh(new THREE.BoxGeometry(SHIP_LENGTH-2,14,SHIP_WIDTH-1),upperMat);
+  upper.position.y=13; upper.castShadow=true; fallbackShip.add(upper);
+
+  // Decks
+  const deckColors=[0x1a2540,0x1e2d4a,0x1a2a42,0x1e3050,0x182c48];
+  for(let d=0;d<5;d++){
+    const geo=new THREE.BoxGeometry(SHIP_LENGTH-2-d,0.4,SHIP_WIDTH-2);
+    const mat=new THREE.MeshPhongMaterial({color:deckColors[d]});
+    const m=new THREE.Mesh(geo,mat); m.position.y=6+d*DECK_HEIGHT; fallbackShip.add(m);
+  }
+
+  // Funnel
+  const funnelGeo=new THREE.CylinderGeometry(2.5,3.5,12,12);
+  const funnel=new THREE.Mesh(funnelGeo,new THREE.MeshPhongMaterial({color:0xE31837}));
+  funnel.position.set(-10,28,0); fallbackShip.add(funnel);
+  const fTop=new THREE.Mesh(new THREE.CylinderGeometry(2.3,2.5,1.5,12),new THREE.MeshPhongMaterial({color:0x111111}));
+  fTop.position.set(-10,34.5,0); fallbackShip.add(fTop);
+
+  shipGroup.add(fallbackShip);
+}
+buildFallbackShip();
+
+// Try to load GLTF
+loadProgress(20, 'Fetching ship model…');
+
+const loader = new THREE.GLTFLoader();
+loader.load(
+  'carnival_sylndeor/scene.gltf',
+  function(gltf) {
+    loadProgress(80, 'Processing geometry…');
+    const model = gltf.scene;
+
+    // Normalize scale: model is ~11000 units tall, we want ~34 units
+    const box = new THREE.Box3().setFromObject(model);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const center = new THREE.Vector3(); box.getCenter(center);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 130 / maxDim;
+    model.scale.setScalar(scale);
+
+    // Rotate 90 degrees on Y axis so ship points along the scene's long axis
+    model.rotation.y = Math.PI / 2;
+
+    // Re-center after scale + rotation
+    const box2 = new THREE.Box3().setFromObject(model);
+    const min2 = box2.min;
+    const center2 = new THREE.Vector3(); box2.getCenter(center2);
+    model.position.set(-center2.x, -min2.y, -center2.z);
+
+    // Improve material quality
+    model.traverse(child => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => { m.envMapIntensity=0.5; });
+          } else {
+            child.material.envMapIntensity = 0.5;
+          }
+        }
+      }
+    });
+
+    // Remove fallback once GLTF is ready
+    shipGroup.remove(fallbackShip);
+    shipGroup.add(model);
+    gltfLoaded = true;
+
+    loadProgress(95, 'Building simulation…');
+    setTimeout(() => {
+      loadProgress(100, 'Ready');
+      setTimeout(() => {
+        document.getElementById('loading-screen').classList.add('hidden');
+      }, 400);
+    }, 300);
+  },
+  function(xhr) {
+    const pct = 20 + Math.round((xhr.loaded / (xhr.total||1)) * 55);
+    loadProgress(Math.min(75, pct), `Loading model… ${Math.round(xhr.loaded/1024/1024)}MB`);
+  },
+  function(err) {
+    console.warn('GLTF load failed, using fallback:', err);
+    loadProgress(100, 'Using procedural model');
+    setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 600);
+  }
+);
+
+// =============================================
+//  VENUE MARKERS
+// =============================================
+const venueMeshes=[], venueCounts=new Array(VENUES.length).fill(0);
+VENUES.forEach((v,i)=>{
+  const y=6+(v.deck-1)*DECK_HEIGHT+0.8;
+  const geo=new THREE.CylinderGeometry(1.8,1.8,0.5,16);
+  const mat=new THREE.MeshPhongMaterial({color:v.color,emissive:v.color,emissiveIntensity:0.4,transparent:true,opacity:0.85});
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.position.set(v.x,y,v.z);
+  mesh.userData={venue:v,index:i};
+  shipGroup.add(mesh);
+  venueMeshes.push(mesh);
+});
+
+// =============================================
+//  AGENTS
+// =============================================
+const agents=[], agentMeshes=[];
+const agentColors=[0x00d4ff,0xf59e0b,0x10b981,0xe31837,0x8b5cf6,0xf97316];
+const agentGeo=new THREE.SphereGeometry(0.42,6,6);
+
+for(let i=0;i<NUM_AGENTS;i++){
+  const mat=new THREE.MeshPhongMaterial({color:agentColors[i%agentColors.length],emissive:agentColors[i%agentColors.length],emissiveIntensity:0.5});
+  const mesh=new THREE.Mesh(agentGeo,mat);
+  mesh.castShadow=false;
+  shipGroup.add(mesh);
+  agentMeshes.push(mesh);
+  const deck=Math.floor(Math.random()*5)+1;
+  agents.push({
+    pos:new THREE.Vector3((Math.random()-.5)*(SHIP_LENGTH-20), 6+(deck-1)*DECK_HEIGHT+1.1, (Math.random()-.5)*(SHIP_WIDTH-6)),
+    deck, targetVenueIdx:Math.floor(Math.random()*VENUES.length),
+    boredom:Math.random()*200, maxBoredom:150+Math.random()*250,
+    speed:0.04+Math.random()*0.04
+  });
+}
+
+// =============================================
+//  HEATMAP
+// =============================================
+const heatCanvas=document.createElement('canvas'); heatCanvas.width=256; heatCanvas.height=64;
+const heatCtx=heatCanvas.getContext('2d');
+const heatTexture=new THREE.CanvasTexture(heatCanvas);
+const heatPlanes=[];
+for(let d=1;d<=5;d++){
+  const geo=new THREE.PlaneGeometry(SHIP_LENGTH-10,SHIP_WIDTH-4);
+  const mat=new THREE.MeshBasicMaterial({map:heatTexture,transparent:true,opacity:0.45,depthWrite:false,side:THREE.DoubleSide});
+  const plane=new THREE.Mesh(geo,mat);
+  plane.rotation.x=-Math.PI/2; plane.position.set(0,6+(d-1)*DECK_HEIGHT+0.5,0);
+  plane.userData={deck:d}; shipGroup.add(plane); heatPlanes.push(plane);
+}
+
+function updateHeatmap(){
+  heatCtx.clearRect(0,0,256,64);
+  agents.forEach(a=>{
+    const px=((a.pos.x/(SHIP_LENGTH-20))*0.5+0.5)*256;
+    const pz=((a.pos.z/(SHIP_WIDTH-6))*0.5+0.5)*64;
+    const grd=heatCtx.createRadialGradient(px,pz,0,px,pz,14);
+    grd.addColorStop(0,'rgba(255,70,0,0.28)'); grd.addColorStop(1,'rgba(255,70,0,0)');
+    heatCtx.fillStyle=grd; heatCtx.beginPath(); heatCtx.arc(px,pz,14,0,Math.PI*2); heatCtx.fill();
+  });
+  heatTexture.needsUpdate=true;
+}
+
+// =============================================
+//  SIMULATION
+// =============================================
+function getWeightedVenue(){
+  const w=SCENARIOS[currentScenario].weights;
+  const total=w.reduce((s,v)=>s+v,0);
+  let r=Math.random()*total;
+  for(let i=0;i<w.length;i++){r-=w[i];if(r<=0)return i;}
+  return 0;
+}
+
+function updateAgents(){
+  const steps=Math.ceil(simSpeed);
+  for(let s=0;s<steps;s++){
+    agents.forEach((a,i)=>{
+      a.boredom+=simSpeed;
+      if(a.boredom>a.maxBoredom){
+        a.targetVenueIdx=getWeightedVenue();
+        a.deck=VENUES[a.targetVenueIdx].deck;
+        a.maxBoredom=100+Math.random()*300; a.boredom=0;
+      }
+      const tv=VENUES[a.targetVenueIdx];
+      const ty=6+(tv.deck-1)*DECK_HEIGHT+1.1;
+      const target=new THREE.Vector3(tv.x,ty,tv.z);
+      const dir=target.clone().sub(a.pos);
+      const dist=dir.length();
+      if(dist>1.5){
+        dir.normalize().multiplyScalar(a.speed*simSpeed);
+        dir.x+=(Math.random()-.5)*0.025; dir.z+=(Math.random()-.5)*0.025;
+        // Light separation (skip every other pair for perf)
+        if(i%2===0){
+          agents.forEach((b,j)=>{
+            if(i===j)return;
+            const d=a.pos.distanceTo(b.pos);
+            if(d<2&&d>0){const rep=a.pos.clone().sub(b.pos).normalize().multiplyScalar(0.015/d);dir.add(rep);}
+          });
+        }
+        const np=a.pos.clone().add(dir);
+        np.x=Math.max(-(SHIP_LENGTH/2-6),Math.min(SHIP_LENGTH/2-6,np.x));
+        np.z=Math.max(-(SHIP_WIDTH/2-3),Math.min(SHIP_WIDTH/2-3,np.z));
+        np.y=a.pos.y+(ty-a.pos.y)*0.04;
+        a.pos.copy(np);
+      }
+    });
+  }
+}
+
+function computeVenueCounts(){
+  venueCounts.fill(0);
+  agents.forEach(a=>{
+    let closest=0,closestDist=Infinity;
+    VENUES.forEach((v,i)=>{
+      const d=Math.abs(a.pos.x-v.x)+Math.abs(a.pos.z-v.z);
+      if(d<closestDist){closestDist=d;closest=i;}
+    });
+    if(closestDist<22)venueCounts[closest]++;
+  });
+}
+
+// =============================================
+//  TIMELINE
+// =============================================
+let tlScrubbing = false;
+
+function buildTLPhases(){
+  const ph=document.getElementById('tl-phases');
+  ph.innerHTML='';
+  TL_EVENTS.forEach(ev=>{
+    const pct=(ev.tick/TL_MAX)*100;
+    const div=document.createElement('div');
+    div.className='tl-phase-mark';
+    div.style.cssText=`position:absolute;left:${pct}%;transform:translateX(-50%);top:-18px;`;
+    div.innerHTML=`<div class="tl-phase-dot" id="tlph-${ev.tick}"></div><div class="tl-phase-label">${ev.label}</div>`;
+    ph.appendChild(div);
+  });
+}
+buildTLPhases();
+
+function tlScrub(val){
+  tlTick=parseInt(val);
+  tlScrubbing=true;
+  updateTLState();
+  setTimeout(()=>tlScrubbing=false,100);
+}
+
+function tlTogglePlay(){
+  tlPlaying=!tlPlaying;
+  document.getElementById('tl-play-icon').textContent=tlPlaying?'⏸':'▶';
+  document.getElementById('tl-play-label').textContent=tlPlaying?'Pause':'Play';
+  document.getElementById('tl-play-btn').classList.toggle('primary',tlPlaying);
+}
+
+function tlReset(){
+  tlTick=0;
+  tlPlaying=true;
+  document.getElementById('tl-track').value=0;
+  document.getElementById('tl-play-icon').textContent='⏸';
+  document.getElementById('tl-play-label').textContent='Pause';
+  document.getElementById('tl-play-btn').classList.add('primary');
+  updateTLState();
+}
+
+function updateTLState(){
+  // Find which scenario we're in
+  let activeEvent=TL_EVENTS[0];
+  for(const ev of TL_EVENTS){ if(tlTick>=ev.tick) activeEvent=ev; }
+
+  // Only change scenario if it actually changed
+  if(activeEvent.scenario !== currentScenario){
+    currentScenario=activeEvent.scenario;
+    // Trigger scenario UI update
+    document.querySelectorAll('.scenario-btn').forEach(b=>b.classList.remove('active'));
+    const btnId='btn-'+currentScenario;
+    if(document.getElementById(btnId)) document.getElementById(btnId).classList.add('active');
+    document.getElementById('scenario-badge').textContent=SCENARIOS[currentScenario].label;
+  }
+
+  // Update phase dots
+  TL_EVENTS.forEach(ev=>{
+    const dot=document.getElementById('tlph-'+ev.tick);
+    if(dot) dot.classList.toggle('reached', tlTick>=ev.tick);
+  });
+
+  // Update time display
+  const dayMinutes=(tlTick/TL_MAX)*24*60*2; // 2 simulated days
+  const day=Math.floor(dayMinutes/(24*60))+1;
+  const minuteOfDay=dayMinutes%(24*60);
+  const startMinute=8*60;
+  const displayMin=(startMinute+minuteOfDay)%(24*60);
+  const h=Math.floor(displayMin/60); const m=Math.floor(displayMin%60);
+  document.getElementById('tl-day').textContent=day;
+  document.getElementById('tl-time-label').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  document.getElementById('tl-tick-num').textContent=tlTick;
+
+  // Dot color
+  const dot=document.getElementById('tl-dot');
+  if(dot) dot.style.background=SCENARIOS[currentScenario].dotColor||'var(--accent)';
+  document.getElementById('tl-scenario-label').textContent=SCENARIOS[currentScenario].label;
+}
+
+// =============================================
+//  UI — INSIGHTS (throttled, only rebuilds on scenario change)
+// =============================================
+const insightSets = {
+  normal:[
+    {type:'info',  tag:'info',  msg:'<strong>Pool Deck</strong> operating at 68% capacity. Optimal conditions.'},
+    {type:'warn',  tag:'warn',  msg:'<strong>Carnival Blvd</strong> showing elevated foot traffic. Consider queuing barriers.'},
+    {type:'good',  tag:'good',  msg:'Revenue tracking <strong>$42K/hr</strong>, 12% above same-voyage baseline.'},
+    {type:'info',  tag:'info',  msg:'Predicted dinner surge in <strong>47 minutes</strong>. Pre-stage restaurant staff.'},
+  ],
+  port:[
+    {type:'info',  tag:'info',  msg:'<strong>82% of passengers</strong> are ashore. Skeleton crew protocols active.'},
+    {type:'good',  tag:'good',  msg:'Optimal window for <strong>deep cleaning</strong> Lido Deck and main dining rooms.'},
+    {type:'warn',  tag:'warn',  msg:'Return flow predicted at <strong>17:30</strong> — stage boarding crew +90min prior.'},
+  ],
+  dinner:[
+    {type:'alert', tag:'alert', msg:'<strong>Main Dining</strong> at 118% capacity. Wait time: 34 min. Open auxiliary seating.'},
+    {type:'alert', tag:'alert', msg:'Deck 3 corridor congestion: <strong>choke point detected</strong> near elevator bay.'},
+    {type:'warn',  tag:'warn',  msg:'Redeploy <strong>4 crew from Sports Deck</strong> to Restaurant Row immediately.'},
+    {type:'good',  tag:'good',  msg:'F&B revenue spike: <strong>+67% above cruise average</strong> for this hour.'},
+  ],
+  drill:[
+    {type:'alert', tag:'alert', msg:'<strong>Muster Drill active.</strong> All passenger movement tracked to stations.'},
+    {type:'alert', tag:'alert', msg:'<strong>47 passengers</strong> not yet at muster stations. Last seen: Deck 11.'},
+    {type:'info',  tag:'info',  msg:'Average muster compliance time: <strong>4m 12s</strong> vs 6m fleet benchmark.'},
+  ],
+  weather:[
+    {type:'alert', tag:'alert', msg:'Outdoor decks restricted. <strong>Indoor venues at 340% normal load.</strong>'},
+    {type:'alert', tag:'alert', msg:'<strong>Casino</strong> and <strong>Carnival Blvd</strong> approaching fire-code occupancy limits.'},
+    {type:'warn',  tag:'warn',  msg:'Open <strong>Deck 2 overflow venue</strong> and redirect via PA system.'},
+    {type:'good',  tag:'good',  msg:'Bar revenue <strong>+89% above baseline</strong> — increase staffing and inventory.'},
+  ],
+};
+
+const crewSets = {
+  normal:  ['Pool Deck ↑ 1 server needed','Carnival Blvd: staffing optimal','Casino: reduce by 2 dealers'],
+  port:    ['Skeleton mode: 40% crew deployed','Maintenance: Galley deep clean','Embarkation crew: standby 17:00'],
+  dinner:  ['🔴 +4 to Main Dining NOW','🔴 +2 to Restaurant Row','Reduce pool staff by 3 (idle)'],
+  drill:   ['All crew to assigned stations','Security to last-known zones','Medical on standby Deck 3'],
+  weather: ['🔴 +6 indoor venue staff','+3 bar staff Carnival Blvd','Close Lido Pool — safety protocol'],
+};
+
+// Only rebuild insight cards when scenario changes — not on a timer
+function rebuildInsights(){
+  const insights=insightSets[currentScenario]||[];
+  const c=document.getElementById('insights-container');
+  const now=new Date();
+  const ts=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  c.innerHTML=insights.map((ins,i)=>`
+    <div class="insight-card ${ins.type}" style="animation:slideIn .25s ease ${i*0.07}s both">
+      <div class="insight-header">
+        <span class="insight-tag ${ins.tag}">${ins.tag.toUpperCase()}</span>
+        <span class="insight-time">${ts}</span>
+      </div>
+      <div class="insight-body">${ins.msg}</div>
+    </div>
+  `).join('');
+}
+
+// Venue bars: update values only (no DOM rebuild = no flash)
+let venueBarsBuilt=false;
+function ensureVenueBars(){
+  if(venueBarsBuilt)return;
+  const vb=document.getElementById('venue-bars');
+  vb.innerHTML=VENUES.map((v,i)=>`
+    <div class="venue-row">
+      <span class="venue-name">${v.name.split(' ').slice(0,2).join(' ')}</span>
+      <div class="venue-bar-track"><div class="venue-bar-fill" id="vbar-${i}" style="width:0%;background:#10b981"></div></div>
+      <span class="venue-count" id="vcnt-${i}">0</span>
+    </div>
+  `).join('');
+  venueBarsBuilt=true;
+}
+
+function updateVenueBars(){
+  ensureVenueBars();
+  VENUES.forEach((v,i)=>{
+    const raw=(venueCounts[i]/(v.capacity/8))*100;
+    const pct=Math.min(100,Math.round(raw));
+    const barColor=pct>85?'#ef4444':pct>60?'#f59e0b':'#10b981';
+    const bar=document.getElementById('vbar-'+i);
+    const cnt=document.getElementById('vcnt-'+i);
+    if(bar){bar.style.width=pct+'%';bar.style.background=barColor;}
+    if(cnt)cnt.textContent=venueCounts[i];
+  });
+}
+
+function updateCrewSuggestions(){
+  const crew=document.getElementById('crew-suggestions');
+  crew.innerHTML=(crewSets[currentScenario]||[]).map(c=>`
+    <div style="font-size:11px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:4px;margin-bottom:4px;color:#c5d0df;border:1px solid rgba(255,255,255,.06)">${c}</div>
+  `).join('');
+}
+
+function updateMetrics(){
+  const sc=SCENARIOS[currentScenario];
+  document.getElementById('m-onboard').textContent=sc.onboard.toLocaleString();
+  document.getElementById('m-congestion').textContent=sc.congestion;
+  document.getElementById('m-congestion').className='metric-value '+(sc.congestion>6?'red':sc.congestion>3?'amber':'green');
+  document.getElementById('m-wait').textContent=sc.wait;
+  document.getElementById('m-revenue').textContent=sc.revenue;
+  document.getElementById('scenario-badge').textContent=sc.label;
+}
+
+function updateDeckCounts(){
+  document.getElementById('cnt-all').textContent=NUM_AGENTS;
+  document.getElementById('cnt-lido').textContent=agents.filter(a=>a.deck===5).length;
+  document.getElementById('cnt-carnival').textContent=agents.filter(a=>a.deck===4).length;
+  document.getElementById('cnt-pool').textContent=agents.filter(a=>a.deck===5).length;
+  document.getElementById('cnt-dining').textContent=agents.filter(a=>a.deck===1).length;
+}
+
+// =============================================
+//  SCENARIO / DECK / CAMERA CONTROLS
+// =============================================
+function setScenario(name){
+  if(currentScenario===name)return;
+  currentScenario=name;
+  document.querySelectorAll('.scenario-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+name).classList.add('active');
+  updateMetrics();
+  rebuildInsights();   // rebuild once on change, not on a timer
+  updateCrewSuggestions();
+}
+
+// Deck Y positions: deck number → world Y of the floor surface
+// These match the agent placement: y = 6 + (deck-1)*DECK_HEIGHT + 1.1
+// We clip just above the top of the selected deck's ceiling
+const DECK_CLIP_Y = {
+  all:     null,   // no clip
+  dining:  6 + 0*DECK_HEIGHT + DECK_HEIGHT + 1.0,   // deck 1 ceiling
+  pool:    6 + 2*DECK_HEIGHT + DECK_HEIGHT + 1.0,   // deck 3 (casino) ceiling — pool is deck 5 but we show deck 3 label
+  carnival:6 + 3*DECK_HEIGHT + DECK_HEIGHT + 1.0,   // deck 4 ceiling
+  lido:    6 + 4*DECK_HEIGHT + DECK_HEIGHT + 2.0,   // deck 5 ceiling (top deck, clip just above)
+};
+// Camera presets per deck: { phi, radius, yTarget }
+const DECK_CAM = {
+  all:     { phi:0.85, radius:130, yTarget:14 },
+  dining:  { phi:0.55, radius:90,  yTarget:8  },
+  pool:    { phi:0.55, radius:90,  yTarget:16 },
+  carnival:{ phi:0.55, radius:90,  yTarget:19 },
+  lido:    { phi:0.45, radius:85,  yTarget:23 },
+};
+
+function setDeck(name){
+  currentDeck=name;
+  document.querySelectorAll('.deck-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('deck-'+name).classList.add('active');
+
+  // --- Clipping plane ---
+  const clipY = DECK_CLIP_Y[name];
+  if(clipY === null || clipY === undefined){
+    // No clip — show full ship
+    renderer.clippingPlanes = [];
+  } else {
+    // Clip everything above clipY: plane normal is (0,-1,0), constant = clipY
+    // The plane equation: dot(normal, point) + constant >= 0 is kept
+    // (0,-1,0)·(x,y,z) + clipY >= 0  →  -y + clipY >= 0  →  y <= clipY ✓
+    deckClipPlane.normal.set(0, -1, 0);
+    deckClipPlane.constant = clipY;
+    renderer.clippingPlanes = [deckClipPlane];
+  }
+
+  // --- Agent visibility ---
+  const deckNum = name==='lido'||name==='pool'?5 : name==='carnival'?4 : name==='dining'?1 : null;
+  agentMeshes.forEach((mesh,i)=>{
+    mesh.visible = deckNum===null ? true : agents[i].deck===deckNum;
+  });
+
+  // --- Heatmap visibility ---
+  heatPlanes.forEach(p=>{
+    if(name==='all') p.visible=showHeatmap;
+    else p.visible=showHeatmap&&(deckNum===null||p.userData.deck===deckNum);
+  });
+
+  // --- Camera angle: tilt more top-down when viewing a specific deck ---
+  const cam = DECK_CAM[name] || DECK_CAM.all;
+  targetSpherical.phi    = cam.phi;
+  targetSpherical.radius = cam.radius;
+  cameraTarget.y         = cam.yTarget;
+}
+
+function toggleHeatmap(){
+  showHeatmap=!showHeatmap;
+  document.getElementById('heat-toggle').classList.toggle('on',showHeatmap);
+  heatPlanes.forEach(p=>p.visible=showHeatmap);
+}
+
+function setSpeed(s,btn){
+  simSpeed=s;
+  document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+}
+
+function setCameraView(mode){
+  cameraMode=mode;
+  document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+(mode==='perspective'?'persp':mode==='top'?'top':'side')).classList.add('active');
+  if(mode==='top')       targetSpherical={theta:0,      phi:0.05, radius:140};
+  else if(mode==='side') targetSpherical={theta:Math.PI/2, phi:1.1, radius:120};
+  else                   targetSpherical={theta:0.6,    phi:0.85, radius:130};
+}
+
+// =============================================
+//  TOOLTIP / RAYCASTER
+// =============================================
+const raycaster=new THREE.Raycaster(), mouse=new THREE.Vector2();
+renderer.domElement.addEventListener('mousemove',e=>{
+  const rect=renderer.domElement.getBoundingClientRect();
+  mouse.x=((e.clientX-rect.left)/rect.width)*2-1;
+  mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObjects(venueMeshes);
+  const tt=document.getElementById('tooltip');
+  if(hits.length>0){
+    const v=hits[0].object.userData.venue;
+    const i=hits[0].object.userData.index;
+    document.getElementById('tt-name').textContent=v.name;
+    document.getElementById('tt-count').textContent=`${venueCounts[i]} passengers nearby`;
+    tt.style.display='block'; tt.style.left=(e.clientX+12)+'px'; tt.style.top=(e.clientY-10)+'px';
+  } else { tt.style.display='none'; }
+});
+
+// =============================================
+//  CLOCK
+// =============================================
+function updateClock(){
+  const n=new Date();
+  document.getElementById('clock-display').textContent=
+    `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`;
+}
+setInterval(updateClock,1000);
+
+// =============================================
+//  MAIN LOOP
+// =============================================
+let frameCount=0, lastSlowUpdate=0, lastVenueUpdate=0;
+const TL_SPEED = 0.4; // timeline ticks per frame at 1x speed
+
+function animate(time){
+  requestAnimationFrame(animate);
+  frameCount++;
+
+  // Timeline advance
+  if(tlPlaying && !tlScrubbing){
+    tlTick=Math.min(TL_MAX, tlTick + TL_SPEED*simSpeed);
+    document.getElementById('tl-track').value=Math.round(tlTick);
+    updateTLState();
+    if(tlTick>=TL_MAX){ tlTick=0; } // loop
+  }
+
+  // Agent simulation
+  if(tlPlaying) updateAgents();
+
+  // Update agent mesh positions
+  agentMeshes.forEach((mesh,i)=>{ mesh.position.copy(agents[i].pos); mesh.rotation.y+=0.018; });
+
+  // Heatmap (every 4 frames)
+  if(showHeatmap && frameCount%4===0) updateHeatmap();
+
+  // Venue glow
+  venueMeshes.forEach((mesh,i)=>{
+    const intensity=Math.min(0.85,0.15+venueCounts[i]*0.04);
+    mesh.material.emissiveIntensity=0.2+Math.sin(time*0.001+i)*0.08+intensity;
+  });
+
+  // Ocean wave (every 3 frames)
+  if(frameCount%3===0){
+    const posArr=oceanGeo.attributes.position.array;
+    for(let i=0;i<posArr.length;i+=3)
+      posArr[i+2]=Math.sin(posArr[i]*0.025+time*0.0007)*0.7+Math.cos(posArr[i+1]*0.035+time*0.0005)*0.35;
+    oceanGeo.attributes.position.needsUpdate=true;
+  }
+
+  // ---- SLOW UPDATE (every ~2 seconds) ----
+  // Venue counts + bars + deck counts — update data, but DON'T rebuild insight HTML
+  if(time-lastVenueUpdate>400){
+    computeVenueCounts();
+    updateVenueBars();
+    updateDeckCounts();
+    lastVenueUpdate=time;
+  }
+
+  // ---- VERY SLOW (every 8 seconds) — rebuild metrics only if scenario changed ----
+  if(time-lastSlowUpdate>8000){
+    updateMetrics();
+    lastSlowUpdate=time;
+  }
+
+  // Insight cards: ONLY rebuilt when scenario changes (handled in setScenario / updateTLState)
+  // This is the fix for the flashing — never on a timer
+  if(currentScenario!==lastInsightScenario){
+    rebuildInsights();
+    updateCrewSuggestions();
+    lastInsightScenario=currentScenario;
+  }
+
+  // Camera smooth follow
+  spherical.theta+=(targetSpherical.theta-spherical.theta)*0.07;
+  spherical.phi+=(targetSpherical.phi-spherical.phi)*0.07;
+  spherical.radius+=(targetSpherical.radius-spherical.radius)*0.07;
+  camera.position.x=cameraTarget.x+spherical.radius*Math.sin(spherical.phi)*Math.sin(spherical.theta);
+  camera.position.y=cameraTarget.y+spherical.radius*Math.cos(spherical.phi);
+  camera.position.z=cameraTarget.z+spherical.radius*Math.sin(spherical.phi)*Math.cos(spherical.theta);
+  camera.lookAt(cameraTarget);
+
+  renderer.render(scene,camera);
+}
+
+// Init
+window.addEventListener('resize',()=>{
+  camera.aspect=container.clientWidth/container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth,container.clientHeight);
+});
+
+updateMetrics();
+rebuildInsights();
+ensureVenueBars();
+updateCrewSuggestions();
+lastInsightScenario=currentScenario;
+animate(0);
+</script>
+</body>
+</html>
